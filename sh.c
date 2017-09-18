@@ -114,6 +114,27 @@ _spell_init(void)
 	return spellt;
 }
 
+static void
+print(const char *s)
+{
+	echo();
+	printw("%s", s);
+	refresh();
+	noecho();
+}
+
+static size_t
+get_maxwidth(char **l)
+{
+	size_t max = 0;
+	size_t i = 0;
+	while (l[i] != 0) {
+		size_t len = strlen(l[i++]);
+		if (len > max)
+			max = len;
+	}
+	return max;
+}
 
 int
 main(int argc, char** argv)
@@ -131,10 +152,7 @@ main(int argc, char** argv)
 	cbreak();
 
 	while (1) {
-		echo();
-		printw("%s", PROMPT);
-		refresh();
-		noecho();
+		print(PROMPT);
 		cmd_offset = 0;
 		args_offset = 0;
 		cmd_size = 32;
@@ -142,7 +160,6 @@ main(int argc, char** argv)
 		args = NULL;
 		cmd = ecalloc(1, cmd_size);
 
-		noecho();
 		while((ch = getch()) != EOF) {
 			if (cmd == NULL) {
 				cmd = ecalloc(1, cmd_size);
@@ -165,10 +182,7 @@ main(int argc, char** argv)
 				free_args(args);
 				args = NULL;
 				cmd = NULL;
-				echo();
-				printw("\n");
-				refresh();
-				noecho();
+				print("\n");
 				break;
 			} 
 
@@ -184,10 +198,7 @@ main(int argc, char** argv)
 				args[args_offset++] = cmd;
 				cmd = NULL;
 				cmd_offset = 0;
-				echo();
-				printw(" ");
-				refresh();
-				noecho();
+				print(" ");
 				continue;
 			}
 
@@ -197,21 +208,30 @@ main(int argc, char** argv)
 				tabkey_count = 0;
 				if (cmd_offset != 0) {
 					if (args_offset == 0) {
-						word_list *suggestions = get_completions(spellt, cmd);
+						char **suggestions = get_completions(spellt, cmd);
 						if (suggestions != NULL) {
-							word_list *node = suggestions;
+							size_t maxwidth = get_maxwidth(suggestions); 
+							size_t i = 0;
 							size_t colnum = 0;
-							while (node != NULL) {
-								if (colnum > 0 && colnum < 4)
-									printf("\t");
-								if (colnum == 4)
+							if (suggestions[i + 1] != NULL)
+								print("\n");
+							while(suggestions[i] != NULL) {
+								if (colnum > 0)
+									print("\t");
+								if (colnum == 3) {
+									print("\n");
 									colnum = 0;
-								else
-									colnum++;
-								printw("%s", node->word);
-								node = node->next;
+								}
+								colnum++;
+								print(suggestions[i++]);
+								if (suggestions[i]) {
+									echo();
+									printw("%-*s", maxwidth - strlen(suggestions[i - 1]), "");
+									refresh();
+									noecho();
+								}
 							}
-							free_word_list(suggestions);
+							free_list(suggestions);
 						}
 					}
 				}
