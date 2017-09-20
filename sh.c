@@ -40,6 +40,7 @@
 
 #include "libspell.h"
 #include "trie.h"
+#define MAXCOL 6
 
 const char *PROMPT = "$>";
 
@@ -244,7 +245,7 @@ do_autocompletion(char **args, size_t args_offset, char **cmd, size_t *cmd_offse
 	while(suggestions[i] != NULL) {
 		if (colnum > 0)
 			print(1, "\t");
-		if (colnum == 3) {
+		if (colnum == MAXCOL) {
 			print(1, "\n");
 			colnum = 0;
 		}
