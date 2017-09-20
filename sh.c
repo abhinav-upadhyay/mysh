@@ -115,10 +115,10 @@ _spell_init(void)
 }
 
 static void
-print(const char *s)
+print(WINDOW * win, const char *s)
 {
 	echo();
-	printw("%s", s);
+	wprintw(win, "%s", s);
 	refresh();
 	noecho();
 }
@@ -148,11 +148,12 @@ main(int argc, char** argv)
 	size_t args_offset;
 	size_t tabkey_count = 0;
 	spell_t *spellt = _spell_init();
-	initscr();
+	WINDOW *win = initscr();
+	keypad(win, TRUE);
 	cbreak();
 
 	while (1) {
-		print(PROMPT);
+		print(win, PROMPT);
 		cmd_offset = 0;
 		args_offset = 0;
 		cmd_size = 32;
@@ -160,13 +161,29 @@ main(int argc, char** argv)
 		args = NULL;
 		cmd = ecalloc(1, cmd_size);
 
-		while((ch = getch()) != EOF) {
+		while((ch = wgetch(win)) != EOF) {
 			if (cmd == NULL) {
 				cmd = ecalloc(1, cmd_size);
 				cmd_offset = 0;
 			}
 
+			if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127 || ch == 8) {
+				if (cmd_offset > 0) {
+					echo();
+					int y = getcury(win);
+					deleteln();
+					move(y, 0);
+					refresh();
+					noecho();
+					cmd[--cmd_offset] = 0;
+					print(win, PROMPT);
+					print(win, cmd);
+				}
+				continue;
+			}
+
 			if (ch == '\n') {
+				print(win, "\n");
 				cmd[cmd_offset] = 0;
 				if (args == NULL) {
 					args = ecalloc(args_size, sizeof(*args));
@@ -182,7 +199,6 @@ main(int argc, char** argv)
 				free_args(args);
 				args = NULL;
 				cmd = NULL;
-				print("\n");
 				break;
 			} 
 
@@ -198,7 +214,7 @@ main(int argc, char** argv)
 				args[args_offset++] = cmd;
 				cmd = NULL;
 				cmd_offset = 0;
-				print(" ");
+				print(win, " ");
 				continue;
 			}
 
@@ -210,7 +226,7 @@ main(int argc, char** argv)
 					if (suggestions != NULL) {
 						if (suggestions[1] == NULL) {
 							size_t len = strlen(cmd);
-							print(*(suggestions) + len);
+							print(win, *(suggestions) + len);
 							if (cmd_offset + len < cmd_size) {
 								memcpy(cmd + cmd_offset, *(suggestions) + len, len + 1);
 								cmd_offset += len + 1;
@@ -224,16 +240,16 @@ main(int argc, char** argv)
 						size_t i = 0;
 						size_t colnum = 0;
 						if (suggestions[i + 1] != NULL)
-							print("\n");
+							print(win, "\n");
 						while(suggestions[i] != NULL) {
 							if (colnum > 0)
-								print("\t");
+								print(win, "\t");
 							if (colnum == 3) {
-								print("\n");
+								print(win, "\n");
 								colnum = 0;
 							}
 							colnum++;
-							print(suggestions[i++]);
+							print(win, suggestions[i++]);
 							if (suggestions[i]) {
 								echo();
 								printw("%-*s", maxwidth - strlen(suggestions[i - 1]), "");
@@ -242,9 +258,9 @@ main(int argc, char** argv)
 							}
 						}
 						free_list(suggestions);
-						print("\n");
-						print(PROMPT);
-						print(cmd);
+						print(win, "\n");
+						print(win, PROMPT);
+						print(win, cmd);
 					}
 					continue;
 				}
