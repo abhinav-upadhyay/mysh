@@ -88,9 +88,9 @@ _spell_init(void)
 	word_list *tail;
 	word_list *node;
 
-	f = fopen("./unigram.txt", "r");
+	f = fopen("./commands.txt", "r");
 	if (f == NULL) {
-		warn("Failed to open unigram.txt");
+		warn("Failed to open commands.txt");
 		return NULL;
 	}
 
