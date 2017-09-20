@@ -272,7 +272,7 @@ main(int argc, char** argv)
 	char *cmd = NULL;
 	char **args = NULL;
 	char **autocompletions = NULL;
-	size_t cmd_size; 
+	size_t cmd_size;
 	size_t args_size;
 	size_t cmd_offset;
 	size_t args_offset;
@@ -296,12 +296,11 @@ main(int argc, char** argv)
 		args = NULL;
 		cmd = ecalloc(1, cmd_size);
 
-		while((ch = wgetch(win)) != EOF) {
+		while ((ch = wgetch(win)) != EOF) {
 			if (cmd == NULL) {
 				cmd = ecalloc(1, cmd_size);
 				cmd_offset = 0;
 			}
-
 			if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127 || ch == 8) {
 				if (cmd_offset > 0) {
 					echo();
@@ -315,7 +314,6 @@ main(int argc, char** argv)
 				}
 				continue;
 			}
-
 			if (ch == '\n') {
 				print(1, "\n");
 				cmd[cmd_offset] = 0;
@@ -350,7 +348,7 @@ main(int argc, char** argv)
 				args = NULL;
 				cmd = NULL;
 				break;
-			} 
+			}
 			if (ch == ' ') {
 				cmd[cmd_offset] = 0;
 				if (args == NULL)
@@ -368,18 +366,16 @@ main(int argc, char** argv)
 			}
 			if (ch == '\t') {
 				tabkey_count++;
-				autocompletions = do_autocompletion(args, args_offset, &cmd, 
-						&cmd_offset, &cmd_size, autocompletions, tabkey_count);
+				autocompletions = do_autocompletion(args, args_offset, &cmd,
+				    &cmd_offset, &cmd_size, autocompletions, tabkey_count);
 				if (tabkey_count == 2)
 					tabkey_count = 0;
 				continue;
 			}
-			
 			if (cmd_offset == cmd_size) {
 				cmd_size *= 2;
 				cmd = realloc(cmd, cmd_size);
 			}
-
 			cmd[cmd_offset++] = ch;
 			echo();
 			printw("%c", ch);
