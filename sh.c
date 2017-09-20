@@ -209,7 +209,12 @@ main(int argc, char** argv)
 					char **suggestions = get_completions(spellt, cmd);
 					if (suggestions != NULL) {
 						if (suggestions[1] == NULL) {
-							print(*(suggestions) + strlen(cmd));
+							size_t len = strlen(cmd);
+							print(*(suggestions) + len);
+							if (cmd_offset + len < cmd_size) {
+								memcpy(cmd + cmd_offset, *(suggestions) + len, len + 1);
+								cmd_offset += len + 1;
+							}
 							continue;
 						}
 						if (tabkey_count++ == 0)
