@@ -335,7 +335,8 @@ main(int argc, char** argv)
 				}
 				int exit_status = exec_proc(args[0], args);
 				if (exit_status == ENOENT) {
-					word_list *spell_suggestions = spell_get_suggestions_slow(spell_cmd_map[CMD], args[0], 1);
+					word_list *spell_suggestions =
+						spell_get_suggestions_slow(spell_cmd_map[CMD], args[0], 1);
 					if (spell_suggestions != NULL) {
 						echo();
 						printw("Did you mean %s?\n", spell_suggestions->word);
