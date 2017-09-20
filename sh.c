@@ -203,39 +203,46 @@ main(int argc, char** argv)
 			}
 
 			if (ch == '\t') {
-				if (tabkey_count++ == 0)
+				if (cmd_offset == 0)
 					continue;
-				tabkey_count = 0;
-				if (cmd_offset != 0) {
-					if (args_offset == 0) {
-						char **suggestions = get_completions(spellt, cmd);
-						if (suggestions != NULL) {
-							size_t maxwidth = get_maxwidth(suggestions); 
-							size_t i = 0;
-							size_t colnum = 0;
-							if (suggestions[i + 1] != NULL)
-								print("\n");
-							while(suggestions[i] != NULL) {
-								if (colnum > 0)
-									print("\t");
-								if (colnum == 3) {
-									print("\n");
-									colnum = 0;
-								}
-								colnum++;
-								print(suggestions[i++]);
-								if (suggestions[i]) {
-									echo();
-									printw("%-*s", maxwidth - strlen(suggestions[i - 1]), "");
-									refresh();
-									noecho();
-								}
-							}
-							free_list(suggestions);
+				if (args_offset == 0) {
+					char **suggestions = get_completions(spellt, cmd);
+					if (suggestions != NULL) {
+						if (suggestions[1] == NULL) {
+							print(*(suggestions) + strlen(cmd));
+							continue;
 						}
+						if (tabkey_count++ == 0)
+							continue;
+						tabkey_count = 0;
+						size_t maxwidth = get_maxwidth(suggestions); 
+						size_t i = 0;
+						size_t colnum = 0;
+						if (suggestions[i + 1] != NULL)
+							print("\n");
+						while(suggestions[i] != NULL) {
+							if (colnum > 0)
+								print("\t");
+							if (colnum == 3) {
+								print("\n");
+								colnum = 0;
+							}
+							colnum++;
+							print(suggestions[i++]);
+							if (suggestions[i]) {
+								echo();
+								printw("%-*s", maxwidth - strlen(suggestions[i - 1]), "");
+								refresh();
+								noecho();
+							}
+						}
+						free_list(suggestions);
+						print("\n");
+						print(PROMPT);
+						print(cmd);
 					}
+					continue;
 				}
-				continue;
 			}
 			
 			if (cmd_offset == cmd_size) {
