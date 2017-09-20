@@ -310,7 +310,9 @@ main(int argc, char** argv)
 					refresh();
 					noecho();
 					cmd[--cmd_offset] = 0;
-					print(2, PROMPT, cmd);
+					print(1, PROMPT);
+					print_arr(args);
+					print(1, cmd);
 				}
 				continue;
 			}
