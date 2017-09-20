@@ -44,7 +44,7 @@
 const char *PROMPT = "$>";
 
 typedef enum command_type {
-	CMD,
+	CMD = 0,
 	MAN,
 	PKG
 } command_type;
@@ -103,7 +103,7 @@ get_wordlist(const char *file)
 	word_list *tail;
 	word_list *node;
 
-	f = fopen("./commands.txt", "r");
+	f = fopen(file, "r");
 	if (f == NULL) {
 		warn("Failed to open commands.txt");
 		return NULL;
@@ -131,19 +131,37 @@ static spell_t *
 _spell_init(command_type cmd_type)
 {
 	spell_t *spellt;
-
 	const char *filename = spell_dicts[cmd_type];
-	word_list *dictionary_list = get_wordlist(filename);
+	word_list *dictionary_list = get_wordlist(spell_dicts[cmd_type]);
 	spellt = spell_init2(dictionary_list, NULL);
 	free_word_list(dictionary_list);
 	return spellt;
 }
 
 static void
-print(WINDOW * win, const char *s)
+print(size_t count, ...)
 {
+	va_list args;
+	va_start(args, count);
+	size_t i;
 	echo();
-	wprintw(win, "%s", s);
+	for (i = 0; i < count; i++)
+		printw( "%s", va_arg(args, char *));
+	refresh();
+	noecho();
+}
+
+static void
+print_arr(char **arr)
+{
+	size_t i = 0;
+	if (arr == NULL)
+		return;
+
+	echo();
+	while (arr[i] != NULL) {
+		printw("%s ", arr[i++]);
+	}
 	refresh();
 	noecho();
 }
@@ -161,12 +179,83 @@ get_maxwidth(char **l)
 	return max;
 }
 
+/**
+ * If there is more than one possible auto completions and tabkey count is 1
+ * just return the list. If the user hits tab again, the caller will pass the
+ * same list and we will print it out. In rest of the cases, we do the auto-
+ * completion and reutnr NULL
+ */
+static char ** 
+do_autocompletion(char **args, size_t args_offset, char **cmd, size_t *cmd_offset,
+		size_t *cmd_size, char **suggestions, size_t tabkey_count)
+{
+	if (cmd_offset == 0)
+		return NULL;
+
+	command_type cmdtype;
+	if (args_offset == 0)
+		cmdtype = CMD;
+	else if (strcmp(args[0], "man") == 0)
+		cmdtype = MAN;
+
+	if (suggestions == NULL)
+		suggestions = get_completions(spell_cmd_map[cmdtype], *cmd);
+	if (suggestions == NULL)
+		return NULL;
+
+	if (suggestions[1] == NULL) {
+		size_t len = strlen(*cmd);
+		print(1, *(suggestions) + len);
+		if (cmd_offset + len > cmd_size) {
+			*cmd = realloc(*cmd, (*cmd_offset) + len + 1);
+			*cmd_size = (*cmd_offset) + len;
+		}
+		memcpy((*cmd) + (*cmd_offset), *(suggestions) + len, len + 1);
+		*cmd_offset += len + 1;
+		free_list(suggestions);
+		return NULL;
+	}
+
+	if (tabkey_count == 1)
+		return suggestions;
+
+	size_t maxwidth = get_maxwidth(suggestions); 
+	size_t i = 0;
+	size_t colnum = 0;
+	if (suggestions[i + 1] != NULL)
+		print(1, "\n");
+
+	while(suggestions[i] != NULL) {
+		if (colnum > 0)
+			print(1, "\t");
+		if (colnum == 3) {
+			print(1, "\n");
+			colnum = 0;
+		}
+		colnum++;
+		print(1, suggestions[i++]);
+		if (suggestions[i]) {
+			echo();
+			printw("%-*s", maxwidth - strlen(suggestions[i - 1]), "");
+			refresh();
+			noecho();
+		}
+	}
+
+	free_list(suggestions);
+	print(2, "\n", PROMPT);
+	print_arr(args);
+	print(1, *cmd);
+	return NULL;
+}
+
 int
 main(int argc, char** argv)
 {
 	char ch;
 	char *cmd = NULL;
 	char **args = NULL;
+	char **autocompletions = NULL;
 	size_t cmd_size; 
 	size_t args_size;
 	size_t cmd_offset;
@@ -181,7 +270,7 @@ main(int argc, char** argv)
 	cbreak();
 
 	while (1) {
-		print(win, PROMPT);
+		print(1, PROMPT);
 		cmd_offset = 0;
 		args_offset = 0;
 		cmd_size = 32;
@@ -204,14 +293,13 @@ main(int argc, char** argv)
 					refresh();
 					noecho();
 					cmd[--cmd_offset] = 0;
-					print(win, PROMPT);
-					print(win, cmd);
+					print(2, PROMPT, cmd);
 				}
 				continue;
 			}
 
 			if (ch == '\n') {
-				print(win, "\n");
+				print(1, "\n");
 				cmd[cmd_offset] = 0;
 				if (args == NULL) {
 					args = ecalloc(args_size, sizeof(*args));
@@ -245,7 +333,6 @@ main(int argc, char** argv)
 				cmd = NULL;
 				break;
 			} 
-
 			if (ch == ' ') {
 				cmd[cmd_offset] = 0;
 				if (args == NULL)
@@ -258,56 +345,16 @@ main(int argc, char** argv)
 				args[args_offset++] = cmd;
 				cmd = NULL;
 				cmd_offset = 0;
-				print(win, " ");
+				print(1, " ");
 				continue;
 			}
-
 			if (ch == '\t') {
-				if (cmd_offset == 0)
-					continue;
-				if (args_offset == 0) {
-					char **suggestions = get_completions(spell_cmd_map[CMD], cmd);
-					if (suggestions != NULL) {
-						if (suggestions[1] == NULL) {
-							size_t len = strlen(cmd);
-							print(win, *(suggestions) + len);
-							if (cmd_offset + len < cmd_size) {
-								memcpy(cmd + cmd_offset, *(suggestions) + len, len + 1);
-								cmd_offset += len + 1;
-							}
-							continue;
-						}
-						if (tabkey_count++ == 0)
-							continue;
-						tabkey_count = 0;
-						size_t maxwidth = get_maxwidth(suggestions); 
-						size_t i = 0;
-						size_t colnum = 0;
-						if (suggestions[i + 1] != NULL)
-							print(win, "\n");
-						while(suggestions[i] != NULL) {
-							if (colnum > 0)
-								print(win, "\t");
-							if (colnum == 3) {
-								print(win, "\n");
-								colnum = 0;
-							}
-							colnum++;
-							print(win, suggestions[i++]);
-							if (suggestions[i]) {
-								echo();
-								printw("%-*s", maxwidth - strlen(suggestions[i - 1]), "");
-								refresh();
-								noecho();
-							}
-						}
-						free_list(suggestions);
-						print(win, "\n");
-						print(win, PROMPT);
-						print(win, cmd);
-					}
-					continue;
-				}
+				tabkey_count++;
+				autocompletions = do_autocompletion(args, args_offset, &cmd, 
+						&cmd_offset, &cmd_size, autocompletions, tabkey_count);
+				if (tabkey_count == 2)
+					tabkey_count = 0;
+				continue;
 			}
 			
 			if (cmd_offset == cmd_size) {
