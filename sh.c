@@ -139,6 +139,13 @@ _spell_init(command_type cmd_type)
 }
 
 static void
+_spell_destroy(void)
+{
+	spell_destroy(spell_cmd_map[CMD]);
+	spell_destroy(spell_cmd_map[MAN]);
+}
+
+static void
 print(size_t count, ...)
 {
 	va_list args;
@@ -375,7 +382,6 @@ main(int argc, char** argv)
 			exit(0);
 		}
 	}
-	spell_destroy(spell_cmd_map[CMD]);
-	spell_destroy(spell_cmd_map[MAN]);
+	_spell_destroy();
 	return 0;
 }
