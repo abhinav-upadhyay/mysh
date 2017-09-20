@@ -153,11 +153,17 @@ print(size_t count, ...)
 	va_start(args, count);
 	size_t i;
 	echo();
-	for (i = 0; i < count; i++)
-		printw( "%s", va_arg(args, char *));
+	for (i = 0; i < count; i++) {
+		char *arg = va_arg(args, char *);
+		printw( "%s", arg);
+		if (strchr(arg, '\n') != NULL)
+			insertln();
+	}
 	refresh();
 	noecho();
 }
+
+
 
 static void
 print_arr(char **arr)
