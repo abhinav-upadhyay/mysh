@@ -143,6 +143,7 @@ _spell_destroy(void)
 {
 	spell_destroy(spell_cmd_map[CMD]);
 	spell_destroy(spell_cmd_map[MAN]);
+	spell_destroy(spell_cmd_map[PKG]);
 }
 
 static void
@@ -204,6 +205,8 @@ do_autocompletion(char **args, size_t args_offset, char **cmd, size_t *cmd_offse
 		cmdtype = CMD;
 	else if (strcmp(args[0], "man") == 0)
 		cmdtype = MAN;
+	else if(strncmp(args[0], "pkg_", 4) == 0)
+		cmdtype = PKG;
 
 	if (suggestions == NULL)
 		suggestions = get_completions(spell_cmd_map[cmdtype], *cmd);
@@ -270,8 +273,10 @@ main(int argc, char** argv)
 	size_t tabkey_count = 0;
 	spell_t *cmd_spellt = _spell_init(CMD);
 	spell_t *man_spellt = _spell_init(MAN);
+	spell_t *pkg_spellt = _spell_init(PKG);
 	spell_cmd_map[CMD] = cmd_spellt;
 	spell_cmd_map[MAN] = man_spellt;
+	spell_cmd_map[PKG] = pkg_spellt;
 	WINDOW *win = initscr();
 	keypad(win, TRUE);
 	cbreak();
