@@ -29,6 +29,7 @@
 
 #include <curses.h>
 #include <err.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,23 +43,38 @@
 
 const char *PROMPT = "$>";
 
-static void
+typedef enum command_type {
+	CMD,
+	MAN,
+	PKG
+} command_type;
+
+spell_t *spell_cmd_map[3];
+const char *spell_dicts[] = {
+	"./commands.txt",
+	"./mans.txt",
+	"./pkgs.txt"
+};
+
+
+
+static int
 exec_proc(char *procname, char **args)
 {
 	int status;
-
-	if (strlen(procname) == 0)
-		return;
-
 	pid_t pid = fork();
+
 	if (pid < 0)
 		err(EXIT_FAILURE, "fork failed");
 	if (pid == 0) {
 		execvp(procname, args);
-		exit(127);
+		exit(errno);
 	}
 
 	wait(&status);
+	if WIFEXITED(status)
+		return WEXITSTATUS(status);
+	return status;
 
 }
 
@@ -74,10 +90,9 @@ free_args(char **args)
 	free(args);
 }
 
-static spell_t *
-_spell_init(void)
+static word_list *
+get_wordlist(const char *file)
 {
-	spell_t *spellt;
 	FILE *f;
 	char *line = NULL;
 	size_t count;
@@ -108,7 +123,17 @@ _spell_init(void)
 		}
 	}
 	free(line);
+	fclose(f);
+	return dictionary_list;
+}
 
+static spell_t *
+_spell_init(command_type cmd_type)
+{
+	spell_t *spellt;
+
+	const char *filename = spell_dicts[cmd_type];
+	word_list *dictionary_list = get_wordlist(filename);
 	spellt = spell_init2(dictionary_list, NULL);
 	free_word_list(dictionary_list);
 	return spellt;
@@ -147,7 +172,10 @@ main(int argc, char** argv)
 	size_t cmd_offset;
 	size_t args_offset;
 	size_t tabkey_count = 0;
-	spell_t *spellt = _spell_init();
+	spell_t *cmd_spellt = _spell_init(CMD);
+	spell_t *man_spellt = _spell_init(MAN);
+	spell_cmd_map[CMD] = cmd_spellt;
+	spell_cmd_map[MAN] = man_spellt;
 	WINDOW *win = initscr();
 	keypad(win, TRUE);
 	cbreak();
@@ -195,7 +223,23 @@ main(int argc, char** argv)
 				}
 				args[args_offset++] = cmd;
 				args[args_offset] = NULL;
-				exec_proc(args[0], args);
+				if (strlen(cmd) == 0) {
+					free_args(args);
+					args = NULL;
+					cmd = NULL;
+					break;
+				}
+				int exit_status = exec_proc(args[0], args);
+				if (exit_status == ENOENT) {
+					word_list *spell_suggestions = spell_get_suggestions_slow(spell_cmd_map[CMD], args[0], 1);
+					if (spell_suggestions != NULL) {
+						echo();
+						printw("Did you mean %s?\n", spell_suggestions->word);
+						refresh();
+						noecho();
+						free_word_list(spell_suggestions);
+					}
+				}
 				free_args(args);
 				args = NULL;
 				cmd = NULL;
@@ -222,7 +266,7 @@ main(int argc, char** argv)
 				if (cmd_offset == 0)
 					continue;
 				if (args_offset == 0) {
-					char **suggestions = get_completions(spellt, cmd);
+					char **suggestions = get_completions(spell_cmd_map[CMD], cmd);
 					if (suggestions != NULL) {
 						if (suggestions[1] == NULL) {
 							size_t len = strlen(cmd);
@@ -284,6 +328,7 @@ main(int argc, char** argv)
 			exit(0);
 		}
 	}
-	spell_destroy(spellt);
+	spell_destroy(spell_cmd_map[CMD]);
+	spell_destroy(spell_cmd_map[MAN]);
 	return 0;
 }
